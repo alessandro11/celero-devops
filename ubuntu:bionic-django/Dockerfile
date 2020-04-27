@@ -24,6 +24,8 @@ RUN set -e; install -o app -g app -d /var/log/gunicorn \
 
 COPY ./docker-entrypoint.sh /
 ENTRYPOINT ["/docker-entrypoint.sh"]
+
+EXPOSE 8080
 CMD ["runserver", "--log-level", "warning", "--error-logfile", \
     "/var/log/gunicorn/error.log", "--access-logfile", \
     "/var/log/gunicorn/access.log", "--bind", "0.0.0.0:8080", \
