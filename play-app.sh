@@ -77,7 +77,90 @@ build() {
 }
 
 
+get_container_ip() {
+    local container_name=$1
 
+    ip=$(docker ps -q | xargs -n 1 docker inspect --format \
+        '{{ .Name }} {{range .NetworkSettings.Networks}} {{.IPAddress}}{{end}}'\
+        | grep $container_name | awk '{print $2}')
+
+    echo $ip
+}
+
+#
+# Since we are guessing that docker will assign the
+# subsequent ip address, check if that is in fact.
+#
+ips_sanity_check() {
+    local container_name=$1 ip_guessed=$2
+
+    ip_assigned=$(docker inspect --format \
+         '{{ .Name }} {{range .NetworkSettings.Networks}} {{.IPAddress}}{{end}}' \
+         "$container_name" | awk '{print $2}')
+
+    if [ "$ip_assigned" != "$ip_guessed" ]; then
+        cat >&2 <<-EOWARN
+            *********************************************************
+            WARNING:
+                IP guessed ($ip_guessed) differ from IP assinged for
+                $container_name ($ip_assigned)!
+
+                The web server may not work correctly.
+            *********************************************************
+EOWARN
+        return 1
+    fi
+
+    return 0
+}
+
+run() {
+    #
+    # This parameter is passed by reference, the
+    # web server ip guessed is returned to the caller
+    #
+    # docker echo many chars to stdout, we want to avoid
+    # using echo "$nginx_ip" as return, since it could messed up
+    #
+    local -n nginx_ip=$1
+    local db_server_ip="" blog1_ip="" blog2_ip="" host=""
+
+    echo
+    docker run --rm -d --name postgres -e BLOG_PASSWORD=mypasswd \
+                -e POSTGRES_PASSWORD_FILE=/var/lib/postgresql/.postgres_pass \
+                "$IMG_POSTGRES:$TAG_POSTGRES"
+    [ $? -ne 0 ] && exit 1
+
+    # wait for postgres to be up.
+    # TODO: this is a race condition, it may failed
+    #       improve the way to wait for port 5432, perhaps psql
+    #
+    echo "Waiting for postgres..."
+    sleep 3
+    db_server_ip=$(get_container_ip postgres)
+    docker run --rm -d --name blog1 -e DB_PASSWD=mypasswd -e "DB_SERVER=$db_server_ip" \
+                "$IMG_APP:$TAG_APP"
+    [ $? -ne 0 ] && exit 1
+    docker run --rm -d --name blog2 -e DB_PASSWD=mypasswd -e "DB_SERVER=$db_server_ip" \
+                "$IMG_APP:$TAG_APP"
+    [ $? -ne 0 ] && exit 1
+
+    blog1_ip=$(get_container_ip blog1)
+    blog2_ip=$(get_container_ip blog2)
+
+    host=$(awk -F'.' '{print $4}' <<<"$blog2_ip")
+    host=$(($host+1))
+    #
+    # This assignment is by reference
+    # return to the caller the ip guessed
+    nginx_ip="$(grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' <<<$blog2_ip).${host}"
+    docker run --rm -d --name nginx -e SERVER_NAME="$nginx_ip" -e SERVERS="$blog1_ip,$blog2_ip" \
+                "$IMG_NGINX:$TAG_NGINX"
+    [ $? -ne 0 ] && exit 1
+    # little trick to get back the stout, the container
+    # redirect it and some messages could be lost
+    set -x; set +x
+}
 
 while getopts ":abrh" opt; do
     case $opt in
