@@ -1,0 +1,11 @@
+
+imports:
+- path: network.py
+
+resources:
+- name: blog-app
+  type: network.py
+  properties:
+    subnetworks:
+      - region: southamerica-east1
+        cidr: 10.128.0.0/16
