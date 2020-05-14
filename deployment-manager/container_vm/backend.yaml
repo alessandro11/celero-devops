@@ -25,15 +25,15 @@ resources:
   properties:
     zone: southamerica-east1-b
     dockerImage: 'gcr.io/env-test-00001/postgres-12.2-alpine-3.11:blog-0.0.3'
-    deviceName: 'storage-postgresql'
+    deviceName: 'pgdata'      
     startup-script: |
-#!/bin/bash
-if ! blkid /dev/disk/by-id/google-storage-postgresql &>/dev/null; then \
-  mkfs.ext4 -L storage-postgresql -m 0 \
-  -E lazy_itable_init=0,lazy_journal_init=0,discard /dev/disk/by-id/google-storage-postgresql; \
-fi; \
-fsck.ext4 -tvy /dev/disk/by-id/google-storage-postgresql \
-&& mkdir -p /mnt/disks/storage-postgresql \
-&& mount -t ext4 -o discard,defaults /dev/disk/by-id/google-storage-postgresql /mnt/disks/storage-postgresql; \
-[ ! -d "/mnt/disks/storage-postgresql/data" ] && mkdir "/mnt/disks/storage-postgresql/data"
-      
+      #!/bin/bash
+      if ! blkid /dev/disk/by-id/google-pgdata &>/dev/null; then
+      mkfs.ext4 -L pgdata -m 0 -E \
+      lazy_itable_init=0,lazy_journal_init=0,discard /dev/disk/by-id/google-pgdata;
+      fi
+      fsck.ext4 -tvy /dev/disk/by-id/google-pgdata \
+      && mkdir -p /mnt/disks/pgdata \
+      && mount -t ext4 -o discard,defaults \
+      /dev/disk/by-id/google-pgdata /mnt/disks/pgdata; \
+      [ ! -d "/mnt/disks/pgdata/data" ] && mkdir "/mnt/disks/pgdata/data"

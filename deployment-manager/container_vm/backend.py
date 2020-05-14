@@ -29,11 +29,11 @@ def GenerateConfig(context):
           'zone': context.properties['zone'],
           'dockerImage': context.properties['dockerImage'],
           'containerImage': 'family/cos-stable',
-          'port': postgres_port,       
+          'port': postgres_port,
           'dockerEnv': {
               'POSTGRES_PASSWORD_FILE': '/var/lib/postgresql/.postgres_pass',
               'BLOG_PASSWORD': 'bIhJ6ekK$FxCKJTn0Wg47z'
           }
-      }      
+      }
   }]
   return {'resources': resources}
