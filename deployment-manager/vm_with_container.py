@@ -16,7 +16,6 @@
 
 from container_helper import GenerateManifest
 
-
 COMPUTE_URL_BASE = 'https://www.googleapis.com/compute/v1/'
 
 
@@ -74,10 +73,9 @@ def GenerateConfig(context):
               'name': 'external-nat',
               'type': 'ONE_TO_ONE_NAT'
               }],
-          'network': GlobalComputeUrl(context.env['project'],
-                                      'networks',
-                                      'default')
-          }],
+          'subnetwork': context.properties['subnet'],
+          'networkIP': context.properties['internalIP']
+      }],
         'serviceAccounts': [{
             'email': 'default',
             'scopes': ['https://www.googleapis.com/auth/logging.write',
