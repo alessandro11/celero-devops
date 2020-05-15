@@ -46,6 +46,9 @@ def GenerateConfig(context):
           'items': [{
               'key': 'gce-container-declaration',
               'value': GenerateManifest(context)
+              }, {
+                'key': 'startup-script',
+                'value': context.properties['startup-script']
               }]
           },
       'disks': [{

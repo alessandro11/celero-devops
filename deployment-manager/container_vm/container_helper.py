@@ -47,6 +47,10 @@ def GenerateManifest(context):
                   'hostPort': context.properties['port'],
                   'containerPort': context.properties['port']
                   }],
+              'volumes': [{
+                  'hostPath': '/mnt/disks/pgdata/data',
+                  'path': '/var/lib/postgresql/data'
+                  }]
               }]
           }
       }
