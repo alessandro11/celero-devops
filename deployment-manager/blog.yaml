@@ -17,17 +17,21 @@
 # together using references, and passes them as env variables to the underlying
 # frontend Docker containers.
 imports:
+- path: ip_reservation.py
+- path: network.py
 - path: disk.py
 - path: vm_with_container.py
 
 resources:
-- name: blog
+- name: blog-postgres-instance
   type: vm_with_container.py
   properties:
     machineType: 'f1-micro'
     zone: 'southamerica-east1-b'
     deviceName: 'pgdata'
     storagePostgres: $(ref.pgdata.selfLink)
+    subnet: $(ref.blog-network.subnet)
+    internalIP: $(ref.blog-ips.addresses['blog-postgres'].address)
     startup-script: |
       #!/bin/bash
       if ! blkid /dev/disk/by-id/google-pgdata &>/dev/null; then
@@ -52,6 +56,7 @@ resources:
         containerPath: '/var/lib/postgresql/data'
     metadata:
       dependsOn:
+      - blog-network
       - pgdata
 
 - name: pgdata
@@ -63,3 +68,55 @@ resources:
       deviceName: 'pgdata'
       type: pd-standard
       name: 'pgdata'
+
+- name: blog-network
+  type: network.py
+  properties:
+    subnetworks:
+      - region: southamerica-east1
+        cidr: 10.128.0.0/16
+
+- name: blog-ips
+  type: ip_reservation.py
+  properties:
+    ipAddresses:
+      - name: blog-external
+        ipType: REGIONAL
+        region: southamerica-east1
+        description: 'Static external ip for web server'
+
+      - name: blog-internal
+        ipType: INTERNAL
+        address: 10.128.0.2
+        subnetwork: $(ref.blog-network.subnet)
+        region: southamerica-east1
+        description: 'Static internal ip for web server'
+
+      - name: blog-postgres
+        ipType: INTERNAL
+        address: 10.128.0.128
+        subnetwork: $(ref.blog-network.subnet)
+        region: southamerica-east1
+        description: 'Static internal ip for PostgreSQL data base'
+
+      - name: blog-worker1
+        ipType: INTERNAL
+        address: 10.128.0.131
+        subnetwork: $(ref.blog-network.subnet)
+        region: southamerica-east1
+        description: 'Static internal blog worker 1'
+
+      - name: blog-worker2
+        ipType: INTERNAL
+        address: 10.128.0.132
+        subnetwork: $(ref.blog-network.subnet)
+        region: southamerica-east1
+        description: 'Static internal blog worker 2'
+
+      - name: blog-worker3
+        ipType: INTERNAL
+        address: 10.128.0.133
+        subnetwork: $(ref.blog-network.subnet)
+        region: southamerica-east1
+        description: 'Static internal blog worker 3'
+
