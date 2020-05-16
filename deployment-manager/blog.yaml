@@ -17,10 +17,10 @@
 # together using references, and passes them as env variables to the underlying
 # frontend Docker containers.
 imports:
-- path: ip_reservation.py
-- path: network.py
-- path: disk.py
-- path: vm_with_container.py
+  - path: ip_reservation.py
+  - path: network.py
+  - path: disk.py
+  - path: vm_with_container.py
 
 resources:
 - name: blog-postgres-instance
@@ -28,10 +28,11 @@ resources:
   properties:
     machineType: 'f1-micro'
     zone: 'southamerica-east1-b'
-    deviceName: 'pgdata'
-    storagePostgres: $(ref.pgdata.selfLink)
+    disks:
+      - deviceName: 'pgdata'
+        diskResource: $(ref.pgdata.selfLink)
     subnet: $(ref.blog-network.subnet)
-    internalIP: $(ref.blog-ips.addresses['blog-postgres'].address)
+    internalIP: $(ref.blog-ips.addresses['blog-postgresql-internal-ip'].address)
     startup-script: |
       #!/bin/bash
       if ! blkid /dev/disk/by-id/google-pgdata &>/dev/null; then
@@ -42,23 +43,67 @@ resources:
       mkdir -p /mnt/disks/pgdata \
       && mount -t ext4 -o discard,defaults \
       /dev/disk/by-id/google-pgdata /mnt/disks/pgdata \
-      && [ ! -d "/mnt/disks/pgdata/data" ] && mkdir "/mnt/disks/pgdata/data"
+      && [ ! -d "/mnt/disks/pgdata/data" ] && mkdir
+      "/mnt/disks/pgdata/data"
     docker:
       image: 'gcr.io/env-test-00001/postgres-12.2-alpine-3.11:blog-0.0.3'
-      ports:
-        - host: 5432
-          container: 5432
       env:
         POSTGRES_PASSWORD_FILE: '/var/lib/postgresql/.postgres_pass'
         BLOG_PASSWORD: 'bIhJ6ekK$FxCKJTn0Wg47z'
-      volume:
-        hostPath: '/mnt/disks/pgdata/data'
-        containerPath: '/var/lib/postgresql/data'
+      volumes:
+        - name: 'pgdata'
+          hostPath: '/mnt/disks/pgdata/data'
+          containerPath: '/var/lib/postgresql/data'
+
     metadata:
       dependsOn:
       - blog-network
       - pgdata
 
+#
+# Creates instance of worker1 VM with container
+#
+- name: blog-worker1-instance
+  type: vm_with_container.py
+  properties:
+    machineType: 'f1-micro'
+    zone: 'southamerica-east1-b'
+    docker:
+      image: 'gcr.io/env-test-00001/ubuntu-18.04.4-lts:blog-0.0.4'
+      env:
+        DB_PASSWD: 'bIhJ6ekK$FxCKJTn0Wg47z'
+        DB_SERVER: $(ref.blog-ips.addresses['blog-postgresql-internal-ip'].address)
+    subnet: $(ref.blog-network.subnet)
+    internalIP: $(ref.blog-ips.addresses['blog-worker1-internal-ip'].address)
+    metadata:
+      dependsOn:
+      - blog-network
+      - blog-postgres-instance
+
+
+#
+# Creates instance of worker2 VM with container
+#
+- name: blog-worker2-instance
+  type: vm_with_container.py
+  properties:
+    machineType: 'f1-micro'
+    zone: 'southamerica-east1-b'
+    docker:
+      image: 'gcr.io/env-test-00001/ubuntu-18.04.4-lts:blog-0.0.4'
+      env:
+        DB_PASSWD: 'bIhJ6ekK$FxCKJTn0Wg47z'
+        DB_SERVER: $(ref.blog-ips.addresses['blog-postgresql-internal-ip'].address)
+    subnet: $(ref.blog-network.subnet)
+    internalIP: $(ref.blog-ips.addresses['blog-worker2-internal-ip'].address)
+    metadata:
+      dependsOn:
+      - blog-network
+      - blog-postgres-instance
+
+#
+# Creates disk persistent
+#
 - name: pgdata
   type: disk.py
   properties:
@@ -69,6 +114,9 @@ resources:
       type: pd-standard
       name: 'pgdata'
 
+#
+# Creates Virtual Private Cloud (VPC)
+#
 - name: blog-network
   type: network.py
   properties:
@@ -76,47 +124,49 @@ resources:
       - region: southamerica-east1
         cidr: 10.128.0.0/16
 
+#
+# Reserve static IPs, one global and internal
+#
 - name: blog-ips
   type: ip_reservation.py
   properties:
     ipAddresses:
-      - name: blog-external
+      - name: blog-webserver-external-ip
         ipType: REGIONAL
         region: southamerica-east1
         description: 'Static external ip for web server'
 
-      - name: blog-internal
+      - name: blog-webserver-internal-ip
         ipType: INTERNAL
         address: 10.128.0.2
         subnetwork: $(ref.blog-network.subnet)
         region: southamerica-east1
         description: 'Static internal ip for web server'
 
-      - name: blog-postgres
+      - name: blog-postgresql-internal-ip
         ipType: INTERNAL
         address: 10.128.0.128
         subnetwork: $(ref.blog-network.subnet)
         region: southamerica-east1
         description: 'Static internal ip for PostgreSQL data base'
 
-      - name: blog-worker1
+      - name: blog-worker1-internal-ip
         ipType: INTERNAL
         address: 10.128.0.131
         subnetwork: $(ref.blog-network.subnet)
         region: southamerica-east1
         description: 'Static internal blog worker 1'
 
-      - name: blog-worker2
+      - name: blog-worker2-internal-ip
         ipType: INTERNAL
         address: 10.128.0.132
         subnetwork: $(ref.blog-network.subnet)
         region: southamerica-east1
         description: 'Static internal blog worker 2'
 
-      - name: blog-worker3
+      - name: blog-worker3-internal-ip
         ipType: INTERNAL
         address: 10.128.0.133
         subnetwork: $(ref.blog-network.subnet)
         region: southamerica-east1
         description: 'Static internal blog worker 3'
-
