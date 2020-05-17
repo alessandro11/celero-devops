@@ -74,6 +74,12 @@ def GenerateConfig(context):
       }]
   }
 
+  if 'tags' in context.properties:
+    items = []
+    for tag in context.properties['tags']:
+      items.append(str(tag))
+    instance['tags'] = {'items': items}
+
   if 'externalIP' in context.properties:
     instance['networkInterfaces'][0]['accessConfigs'][0]['natIP'] = \
        context.properties['externalIP']
