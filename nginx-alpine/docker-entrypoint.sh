@@ -35,28 +35,68 @@ set_upstream_servers() {
     sed -i "/^[ ,\t]*# SERVERS/a \ $servers" /etc/nginx/conf.d/blog.conf
 }
 
-set_server_name() {
+set_server_name_80() {
     # This variable is expected from -e SERVER_NAME=<your_server_name>
     # docker run ... cli
-    local server_name=$SERVER_NAME
+    local server_name=$SERVER_NAME_80
 
     if [ -z "$server_name" ]; then
         cat >&2 <<-'EOERR'
             ********************************************************************************
-            ERROR: SERVER_NAME variable has not been defined.
+            ERROR: SERVER_NAME_80 variable has not been defined.
 
-                   use docker run ... -e SERVER_NAME=<your_server_name> ...
+                   use docker run ... -e SERVER_NAME_80=<your_server_name> ...
             ********************************************************************************
 EOERR
         exit 1
     fi
 
-    sed -i "/^[ ,\t]*# SERVER_NAME/a \    server_name $server_name;" /etc/nginx/conf.d/blog.conf
+    sed -i "/^[ ,\t]*# SERVER_NAME_80/a \    server_name $server_name;" /etc/nginx/conf.d/blog.conf
 }
+
+set_server_name_443() {
+    # This variable is expected from -e SERVER_NAME=<your_server_name>
+    # docker run ... cli
+    local server_name=$SERVER_NAME_443
+
+    if [ -z "$server_name" ]; then
+        cat >&2 <<-'EOERR'
+            ********************************************************************************
+            ERROR: SERVER_NAME_443 variable has not been defined.
+
+                   use docker run ... -e SERVER_NAME_443=<your_server_name> ...
+            ********************************************************************************
+EOERR
+        exit 1
+    fi
+
+    sed -i "/^[ ,\t]*# SERVER_NAME_443/a \    server_name $server_name;" /etc/nginx/conf.d/blog.conf
+}
+
+update_dns() {
+    local external_ip=$SERVER_EXTERNAL_IP
+    local token='03dd6332-ff49-4ed6-8771-0f96a8ed87c7'
+
+    if [ -z "$external_ip" ]; then
+        cat >&2 <<-'EOERR'
+            ********************************************************************************
+            ERROR: No external ip has been defined
+
+                   use docker run ... -e SERVER_EXTERNAL_IP=<your_server_ip> ...
+            ********************************************************************************
+EOERR
+        exit 1
+    fi
+
+    wget -O- "https://www.duckdns.org/update?domains=blog-celero&token=$token&ip=$external_ip&verbose=true"
+}
+
 
 if [ "$1" = 'runserver' ]; then
     shift
-    set_server_name
+    set_server_name_80
+    set_server_name_443
+    update_dns
     servers=`parse_servers`
     set_upstream_servers "$servers"
 
