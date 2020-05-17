@@ -16,228 +16,250 @@
 # traffic. Also launches a single MySQL container instance, wires the two
 # together using references, and passes them as env variables to the underlying
 # frontend Docker containers.
+
 imports:
-- path: firewall.py
-- path: ip_reservation.py
-- path: network.py
-- path: disk.py
-- path: vm_with_container.py
+  - path: firewall.py
+    name: firewall.py
+  - path: ip_reservation.py
+    name: ip_reservation.py
+  - path: network.py
+    name: network.py
+  - path: disk.py
+    name: disk.py
+  - path: vm_with_container.py
+    name: vm_with_container.py
+  - path: runtime_config.py
+    name: runtime_config.py
 
 resources:
-- name: blog-postgres-instance
-  type: vm_with_container.py
-  properties:
-    machineType: 'f1-micro'
-    zone: 'southamerica-east1-b'
-    disks:
-      - deviceName: 'pgdata'
-        diskResource: $(ref.pgdata.selfLink)
-    subnet: $(ref.blog-network.subnet)
-    internalIP: $(ref.blog-ips.addresses['blog-postgresql-internal-ip'].address)
-    startup-script: |
-      #!/bin/bash
-      if ! blkid /dev/disk/by-id/google-pgdata &>/dev/null; then
-      mkfs.ext4 -L pgdata -m 0 -E \
-      lazy_itable_init=0,lazy_journal_init=0,discard /dev/disk/by-id/google-pgdata;
-      fi
-      fsck.ext4 -tvy /dev/disk/by-id/google-pgdata;
-      mkdir -p /mnt/disks/pgdata \
-      && mount -t ext4 -o discard,defaults \
-      /dev/disk/by-id/google-pgdata /mnt/disks/pgdata \
-      && [ ! -d "/mnt/disks/pgdata/data" ] && mkdir
-      "/mnt/disks/pgdata/data"
-    docker:
-      image: 'gcr.io/env-test-00001/postgres-12.2-alpine-3.11:blog-0.0.3'
-      env:
-        POSTGRES_PASSWORD_FILE: '/var/lib/postgresql/.postgres_pass'
-        BLOG_PASSWORD: 'bIhJ6ekK$FxCKJTn0Wg47z'
-      volumes:
-        - name: 'pgdata'
-          hostPath: '/mnt/disks/pgdata/data'
-          containerPath: '/var/lib/postgresql/data'
+  - name: blog-postgres-instance
+    type: vm_with_container.py
+    properties:
+      machineType: 'f1-micro'
+      zone: 'southamerica-east1-b'
+      disks:
+        - deviceName: 'pgdata'
+          diskResource: $(ref.pgdata.selfLink)
+      subnet: $(ref.blog-network.subnet)
+      internalIP: $(ref.blog-ips.addresses['blog-postgresql-internal-ip'].address)
+      startup-script: |
+        #!/bin/bash
+        if ! blkid /dev/disk/by-id/google-pgdata &>/dev/null; then
+        mkfs.ext4 -L pgdata -m 0 -E \
+        lazy_itable_init=0,lazy_journal_init=0,discard /dev/disk/by-id/google-pgdata;
+        fi
+        fsck.ext4 -tvy /dev/disk/by-id/google-pgdata;
+        mkdir -p /mnt/disks/pgdata \
+        && mount -t ext4 -o discard,defaults \
+        /dev/disk/by-id/google-pgdata /mnt/disks/pgdata \
+        && [ ! -d "/mnt/disks/pgdata/data" ] && mkdir
+        "/mnt/disks/pgdata/data"
+      docker:
+        image: 'gcr.io/env-test-00001/postgres-12.2-alpine-3.11:blog-0.0.3'
+        env:
+          POSTGRES_PASSWORD_FILE: '/var/lib/postgresql/.postgres_pass'
+          BLOG_PASSWORD: 'bIhJ6ekK$FxCKJTn0Wg47z'
+        volumes:
+          - name: 'pgdata'
+            hostPath: '/mnt/disks/pgdata/data'
+            containerPath: '/var/lib/postgresql/data'
+      metadata:
+        dependsOn:
+          - blog-network
+          - postgres-persistent-disk
 
-    metadata:
-      dependsOn:
-      - blog-network
-      - pgdata
+  #
+  # Creates disk persistent
+  #
+  - name: postgres-persistent-disk
+    type: disk.py
+    properties:
+      zone: 'southamerica-east1-b'
+      disks:
+        - sizeGB: 5
+          deviceName: 'pgdata'
+          type: pd-standard
+          name: 'postgres-persistent-disk'
 
-#
-# Creates instance of worker2 VM with container
-# reverse proxy at port 8080
-#
-- name: blog-worker1-instance
-  type: vm_with_container.py
-  properties:
-    machineType: 'f1-micro'
-    zone: 'southamerica-east1-b'
-    docker:
-      image: 'gcr.io/env-test-00001/ubuntu-18.04.4-lts:blog-0.0.4'
-      env:
-        DB_PASSWD: 'bIhJ6ekK$FxCKJTn0Wg47z'
-        DB_SERVER: $(ref.blog-ips.addresses['blog-postgresql-internal-ip'].address)
-    subnet: $(ref.blog-network.subnet)
-    internalIP: $(ref.blog-ips.addresses['blog-worker1-internal-ip'].address)
-    metadata:
-      dependsOn:
-      - blog-network
-      - blog-postgres-instance
+  #
+  # Creates instance of worker2 VM with container
+  # reverse proxy at port 8080
+  #
+  - name: blog-worker1-instance
+    type: vm_with_container.py
+    properties:
+      machineType: 'f1-micro'
+      zone: 'southamerica-east1-b'
+      docker:
+        image: 'gcr.io/env-test-00001/ubuntu-18.04.4-lts:blog-0.0.4'
+        env:
+          DB_PASSWD: 'bIhJ6ekK$FxCKJTn0Wg47z'
+          DB_SERVER: $(ref.blog-ips.addresses['blog-postgresql-internal-ip'].address)
+      subnet: $(ref.blog-network.subnet)
+      internalIP: $(ref.blog-ips.addresses['blog-worker1-internal-ip'].address)
+      metadata:
+        dependsOn:
+          - blog-network
+          - blog-postgres-instance
 
 
-#
-# Creates instance of worker2 VM with container
-# reverse proxy at port 8080
-#
-- name: blog-worker2-instance
-  type: vm_with_container.py
-  properties:
-    machineType: 'f1-micro'
-    zone: 'southamerica-east1-b'
-    docker:
-      image: 'gcr.io/env-test-00001/ubuntu-18.04.4-lts:blog-0.0.4'
-      env:
-        DB_PASSWD: 'bIhJ6ekK$FxCKJTn0Wg47z'
-        DB_SERVER: $(ref.blog-ips.addresses['blog-postgresql-internal-ip'].address)
-    subnet: $(ref.blog-network.subnet)
-    internalIP: $(ref.blog-ips.addresses['blog-worker2-internal-ip'].address)
-    metadata:
-      dependsOn:
-      - blog-network
-      - blog-postgres-instance
+  #
+  # Creates instance of worker2 VM with container
+  # reverse proxy at port 8080
+  #
+  - name: blog-worker2-instance
+    type: vm_with_container.py
+    properties:
+      machineType: 'f1-micro'
+      zone: 'southamerica-east1-b'
+      docker:
+        image: 'gcr.io/env-test-00001/ubuntu-18.04.4-lts:blog-0.0.4'
+        env:
+          DB_PASSWD: 'bIhJ6ekK$FxCKJTn0Wg47z'
+          DB_SERVER: $(ref.blog-ips.addresses['blog-postgresql-internal-ip'].address)
+      subnet: $(ref.blog-network.subnet)
+      internalIP: $(ref.blog-ips.addresses['blog-worker2-internal-ip'].address)
+      metadata:
+        dependsOn:
+          - blog-network
+          - blog-postgres-instance
 
-#
-# Creates WebServer instance Nginx
-#
-- name: blog-webserver-instance
-  type: vm_with_container.py
-  properties:
-    machineType: 'f1-micro'
-    zone: 'southamerica-east1-b'
-    docker:
-      image: 'gcr.io/env-test-00001/ngix-alpine-3.11:blog-0.0.11'
-      env:
-        SERVER_NAME_80: $(ref.blog-ips.addresses['blog-webserver-external-ip'].address)
-        SERVER_NAME_443: 'blog-celero.duckdns.org'
-        SERVER_EXTERNAL_IP: $(ref.blog-ips.addresses['blog-webserver-external-ip'].address)
-        SERVERS: $(ref.blog-ips.addresses['blog-worker1-internal-ip'].address),$(ref.blog-ips.addresses['blog-worker2-internal-ip'].address),$(ref.blog-ips.addresses['blog-worker3-internal-ip'].address)
-    subnet: $(ref.blog-network.subnet)
-    internalIP: $(ref.blog-ips.addresses['blog-webserver-internal-ip'].address)
-    externalIP: $(ref.blog-ips.addresses['blog-webserver-external-ip'].address)
-    metadata:
-      dependsOn:
-      - blog-network
+  #
+  # Creates WebServer instance Nginx
+  #
+  - name: blog-webserver-instance
+    type: vm_with_container.py
+    properties:
+      machineType: 'f1-micro'
+      zone: 'southamerica-east1-b'
+      tags:
+        - allow-icmp2webserver
+      docker:
+        image: 'gcr.io/env-test-00001/ngix-alpine-3.11:blog-v0.0.11'
+        env:
+          SERVER_NAME_80: $(ref.blog-ips.addresses['blog-webserver-external-ip'].address)
+          SERVER_NAME_443: 'blog-celero.duckdns.org'
+          SERVER_EXTERNAL_IP: $(ref.blog-ips.addresses['blog-webserver-external-ip'].address)
+          SERVERS: $(ref.blog-ips.addresses['blog-worker1-internal-ip'].address),$(ref.blog-ips.addresses['blog-worker2-internal-ip'].address),$(ref.blog-ips.addresses['blog-worker3-internal-ip'].address)
+      subnet: $(ref.blog-network.subnet)
+      internalIP: $(ref.blog-ips.addresses['blog-webserver-internal-ip'].address)
+      externalIP: $(ref.blog-ips.addresses['blog-webserver-external-ip'].address)
+      metadata:
+        dependsOn:
+          - blog-network
 
-#
-# Creates disk persistent
-#
-- name: pgdata
-  type: disk.py
-  properties:
-    zone: 'southamerica-east1-b'
-    disks:
-    - sizeGB: 5
-      deviceName: 'pgdata'
-      type: pd-standard
-      name: 'pgdata'
 
-#
-# Creates Virtual Private Cloud (VPC)
-#
-- name: blog-network
-  type: network.py
-  properties:
-    subnetworks:
-      - region: southamerica-east1
-        cidr: 10.128.0.0/16
+  #
+  # Creates Virtual Private Cloud (VPC)
+  #
+  - name: blog-network
+    type: network.py
+    properties:
+      subnetworks:
+        - region: southamerica-east1
+          cidr: 10.128.0.0/16
 
-#
-# Reserve static IPs; one global and three internal
-#
-- name: blog-ips
-  type: ip_reservation.py
-  properties:
-    ipAddresses:
-      - name: blog-webserver-external-ip
-        ipType: REGIONAL
-        region: southamerica-east1
-        description: 'Static external ip for web server'
+  #
+  # Reserve static IPs; one global and three internal
+  #
+  - name: blog-ips
+    type: ip_reservation.py
+    properties:
+      ipAddresses:
+        - name: blog-webserver-external-ip
+          ipType: REGIONAL
+          region: southamerica-east1
+          description: 'Static external ip for web server'
 
-      - name: blog-webserver-internal-ip
-        ipType: INTERNAL
-        address: 10.128.0.2
-        subnetwork: $(ref.blog-network.subnet)
-        region: southamerica-east1
-        description: 'Static internal ip for web server'
+        - name: blog-webserver-internal-ip
+          ipType: INTERNAL
+          address: 10.128.0.2
+          subnetwork: $(ref.blog-network.subnet)
+          region: southamerica-east1
+          description: 'Static internal ip for web server'
 
-      - name: blog-postgresql-internal-ip
-        ipType: INTERNAL
-        address: 10.128.0.128
-        subnetwork: $(ref.blog-network.subnet)
-        region: southamerica-east1
-        description: 'Static internal ip for PostgreSQL data base'
+        - name: blog-postgresql-internal-ip
+          ipType: INTERNAL
+          address: 10.128.0.128
+          subnetwork: $(ref.blog-network.subnet)
+          region: southamerica-east1
+          description: 'Static internal ip for PostgreSQL data base'
 
-      - name: blog-worker1-internal-ip
-        ipType: INTERNAL
-        address: 10.128.0.131
-        subnetwork: $(ref.blog-network.subnet)
-        region: southamerica-east1
-        description: 'Static internal blog worker 1'
+        - name: blog-worker1-internal-ip
+          ipType: INTERNAL
+          address: 10.128.0.131
+          subnetwork: $(ref.blog-network.subnet)
+          region: southamerica-east1
+          description: 'Static internal blog worker 1'
 
-      - name: blog-worker2-internal-ip
-        ipType: INTERNAL
-        address: 10.128.0.132
-        subnetwork: $(ref.blog-network.subnet)
-        region: southamerica-east1
-        description: 'Static internal blog worker 2'
+        - name: blog-worker2-internal-ip
+          ipType: INTERNAL
+          address: 10.128.0.132
+          subnetwork: $(ref.blog-network.subnet)
+          region: southamerica-east1
+          description: 'Static internal blog worker 2'
 
-      - name: blog-worker3-internal-ip
-        ipType: INTERNAL
-        address: 10.128.0.133
-        subnetwork: $(ref.blog-network.subnet)
-        region: southamerica-east1
-        description: 'Static internal blog worker 3'
+        - name: blog-worker3-internal-ip
+          ipType: INTERNAL
+          address: 10.128.0.133
+          subnetwork: $(ref.blog-network.subnet)
+          region: southamerica-east1
+          description: 'Static internal blog worker 3'
 
-- name: blog-firewall
-  type: firewall.py
-  properties:
-    network: $(ref.blog-network.selfLink)
-    rules:
-      - name: 'allow-ssh'
-        allowed:
-          - IPProtocol: tcp
-            ports:
-              - '22'
-        direction: INGRESS
-        priority: 65534
-        description: 'Allow ssh'
+  #
+  # Firewall rules
+  #
+  - name: blog-firewall
+    type: firewall.py
+    properties:
+      network: $(ref.blog-network.selfLink)
+      rules:
+        - name: 'allow-ssh'
+          allowed:
+            - IPProtocol: tcp
+              ports:
+                - '22'
+          direction: INGRESS
+          priority: 65534
+          description: 'Allow ssh'
 
-      - name: 'allow-db'
-        allowed:
-          - IPProtocol: tcp
-            ports:
-              - '5432'
-        sourceRanges:
-          - 10.128.0.128/26
-        direction: INGRESS
-        priority: 65534
-        description: 'Allow db connection to workers range'
+        - name: 'allow-db'
+          allowed:
+            - IPProtocol: tcp
+              ports:
+                - '5432'
+          sourceRanges:
+            - 10.128.0.128/26
+          direction: INGRESS
+          priority: 65534
+          description: 'Allow db connection to workers range'
 
-      - name: 'allow-workers'
-        allowed:
-          - IPProtocol: tcp
-            ports:
-              - '8080'
-        sourceRanges:
-          - $(ref.blog-ips.addresses['blog-webserver-internal-ip'].address)/32
-        direction: INGRESS
-        priority: 65534
-        description: 'Allow connection to webserver only'
+        - name: 'allow-workers'
+          allowed:
+            - IPProtocol: tcp
+              ports:
+                - '8080'
+          sourceRanges:
+            - $(ref.blog-ips.addresses['blog-webserver-internal-ip'].address)/32
+          direction: INGRESS
+          priority: 65534
+          description: 'Allow connection to webserver only'
 
-      - name: 'allow-webserver'
-        allowed:
-          - IPProtocol: tcp
-            ports:
-              - '80'
-              - '443'
-        direction: INGRESS
-        priority: 10
-        description: 'Allow http(s)'
+        - name: 'allow-webserver'
+          allowed:
+            - IPProtocol: tcp
+              ports:
+                - '80'
+                - '443'
+          direction: INGRESS
+          priority: 10
+          description: 'Allow http(s)'
+
+        - name: 'allow-icmp-webserver'
+          allowed:
+            - IPProtocol: icmp
+          targetTags:
+            - allow-icmp2webserver
+          direction: INGRESS
+          priority: 65533
+          description: 'Allow icmp'
