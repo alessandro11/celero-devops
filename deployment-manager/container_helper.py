@@ -17,7 +17,6 @@
 import six
 import yaml
 
-
 def GenerateManifest(context):
   """Generates a Container Manifest given a Template context.
 
@@ -42,26 +41,31 @@ def GenerateManifest(context):
       'spec': {
         'containers': [{
           'name': str(context.env['name']),
-          'image': context.properties['docker']['image'],
-          'ports': [{
-            'hostPort': context.properties['docker']['ports'][0]['host'],
-            'containerPort': context.properties['docker']['ports'][0]['container']
-          }],
-          'volumeMounts': [{
-            'name': 'pgdata',
-            'mountPath': context.properties['docker']['volume']['containerPath'],
-            'readOnly': False
-          }]
+          'image': context.properties['docker']['image']
         }],
         'restartPolicy': 'Always',
-        'volumes': [{
-          'name': 'pgdata',
-          'hostPath': {
-            'path': context.properties['docker']['volume']['hostPath']
-          }
-        }]
       }
-    }
+  }
+
+  if 'ports' in context.properties['docker']:
+    manifest['spec']['containers'][0]['ports'] = [{
+      'hostPort': context.properties['docker']['ports'][0]['host'],
+      'containerPort': context.properties['docker']['ports'][0]['container']
+    }]
+
+  if 'volumes' in context.properties['docker']:
+    manifest['spec']['containers'][0]['volumeMounts'] = [{
+        'name': context.properties['docker']['volumes'][0]['name'],
+        'mountPath': context.properties['docker']['volumes'][0]['containerPath'],
+        'readOnly': False
+      }]
+
+    manifest['spec']['volumes'] = [{
+        'name': context.properties['docker']['volumes'][0]['name'],
+        'hostPath': {
+          'path': context.properties['docker']['volumes'][0]['hostPath']
+        }
+    }]
 
   if env_list:
     manifest['spec']['containers'][0]['env'] = env_list
