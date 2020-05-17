@@ -28,18 +28,43 @@ imports:
     name: disk.py
   - path: vm_with_container.py
     name: vm_with_container.py
-  - path: runtime_config.py
-    name: runtime_config.py
+  - path: config.py
+    name: config.py
 
+
+  #
+  # WARNING: since we reserve ips, disk all resource should be laying
+  #          at the same region. For cross regions an complex
+  #          architecture should be defined.
+  # All images are expected to be at gcr.io/PROJECT_ID...
 resources:
+  - name: config
+    type: config.py
+    properties:
+      description: Variables to setup blog env
+      region: southamerica-east1
+      zone: southamerica-east1-b
+      postgres:
+        image: 'postgres-12.2-alpine-3.11:blog-0.0.3'
+        db_blog_password: 'bIhJ6ekK$FxCKJTn0Wg47z'
+      worker:
+        image: 'ubuntu-18.04.4-lts:blog-0.0.4'
+      webserver:
+        image: 'ngix-alpine-3.11:blog-v0.0.11'
+        server_name_443: 'blog-celero.duckdns.org'
+
+
+  #
+  # Instance of Postgres VM
+  #
   - name: blog-postgres-instance
     type: vm_with_container.py
     properties:
       machineType: 'f1-micro'
-      zone: 'southamerica-east1-b'
+      zone: $(ref.config.zone)
       disks:
         - deviceName: 'pgdata'
-          diskResource: $(ref.pgdata.selfLink)
+          diskResource: $(ref.postgres-persistent-disk.selfLink)
       subnet: $(ref.blog-network.subnet)
       internalIP: $(ref.blog-ips.addresses['blog-postgresql-internal-ip'].address)
       startup-script: |
@@ -55,16 +80,17 @@ resources:
         && [ ! -d "/mnt/disks/pgdata/data" ] && mkdir
         "/mnt/disks/pgdata/data"
       docker:
-        image: 'gcr.io/env-test-00001/postgres-12.2-alpine-3.11:blog-0.0.3'
+        image: $(ref.config.postgres.image)
         env:
           POSTGRES_PASSWORD_FILE: '/var/lib/postgresql/.postgres_pass'
-          BLOG_PASSWORD: 'bIhJ6ekK$FxCKJTn0Wg47z'
+          BLOG_PASSWORD: $(ref.config.postgres.db_blog_password)
         volumes:
           - name: 'pgdata'
             hostPath: '/mnt/disks/pgdata/data'
             containerPath: '/var/lib/postgresql/data'
       metadata:
         dependsOn:
+          - config
           - blog-network
           - postgres-persistent-disk
 
@@ -74,31 +100,35 @@ resources:
   - name: postgres-persistent-disk
     type: disk.py
     properties:
-      zone: 'southamerica-east1-b'
+      zone: $(ref.config.zone)
       disks:
         - sizeGB: 5
           deviceName: 'pgdata'
           type: pd-standard
           name: 'postgres-persistent-disk'
+      metadata:
+        dependsOn:
+          - config
 
   #
-  # Creates instance of worker2 VM with container
+  # Creates instance of worker1 VM with container
   # reverse proxy at port 8080
   #
   - name: blog-worker1-instance
     type: vm_with_container.py
     properties:
       machineType: 'f1-micro'
-      zone: 'southamerica-east1-b'
+      zone: $(ref.config.zone)
       docker:
-        image: 'gcr.io/env-test-00001/ubuntu-18.04.4-lts:blog-0.0.4'
+        image: $(ref.config.worker.image)
         env:
-          DB_PASSWD: 'bIhJ6ekK$FxCKJTn0Wg47z'
+          DB_PASSWD: $(ref.config.postgres.db_blog_password)
           DB_SERVER: $(ref.blog-ips.addresses['blog-postgresql-internal-ip'].address)
       subnet: $(ref.blog-network.subnet)
       internalIP: $(ref.blog-ips.addresses['blog-worker1-internal-ip'].address)
       metadata:
         dependsOn:
+          - config
           - blog-network
           - blog-postgres-instance
 
@@ -111,16 +141,17 @@ resources:
     type: vm_with_container.py
     properties:
       machineType: 'f1-micro'
-      zone: 'southamerica-east1-b'
+      zone: $(ref.config.zone)
       docker:
-        image: 'gcr.io/env-test-00001/ubuntu-18.04.4-lts:blog-0.0.4'
+        image: $(ref.config.worker.image)
         env:
-          DB_PASSWD: 'bIhJ6ekK$FxCKJTn0Wg47z'
+          DB_PASSWD: $(ref.config.postgres.db_blog_password)
           DB_SERVER: $(ref.blog-ips.addresses['blog-postgresql-internal-ip'].address)
       subnet: $(ref.blog-network.subnet)
       internalIP: $(ref.blog-ips.addresses['blog-worker2-internal-ip'].address)
       metadata:
         dependsOn:
+          - config
           - blog-network
           - blog-postgres-instance
 
@@ -131,14 +162,14 @@ resources:
     type: vm_with_container.py
     properties:
       machineType: 'f1-micro'
-      zone: 'southamerica-east1-b'
+      zone: $(ref.config.zone)
       tags:
         - allow-icmp2webserver
       docker:
-        image: 'gcr.io/env-test-00001/ngix-alpine-3.11:blog-v0.0.11'
+        image: $(ref.config.webserver.image)
         env:
           SERVER_NAME_80: $(ref.blog-ips.addresses['blog-webserver-external-ip'].address)
-          SERVER_NAME_443: 'blog-celero.duckdns.org'
+          SERVER_NAME_443: $(ref.config.webserver.server_name_443)
           SERVER_EXTERNAL_IP: $(ref.blog-ips.addresses['blog-webserver-external-ip'].address)
           SERVERS: $(ref.blog-ips.addresses['blog-worker1-internal-ip'].address),$(ref.blog-ips.addresses['blog-worker2-internal-ip'].address),$(ref.blog-ips.addresses['blog-worker3-internal-ip'].address)
       subnet: $(ref.blog-network.subnet)
@@ -146,6 +177,7 @@ resources:
       externalIP: $(ref.blog-ips.addresses['blog-webserver-external-ip'].address)
       metadata:
         dependsOn:
+          - config
           - blog-network
 
 
@@ -168,14 +200,14 @@ resources:
       ipAddresses:
         - name: blog-webserver-external-ip
           ipType: REGIONAL
-          region: southamerica-east1
+          region: $(ref.config.region)
           description: 'Static external ip for web server'
 
         - name: blog-webserver-internal-ip
           ipType: INTERNAL
           address: 10.128.0.2
           subnetwork: $(ref.blog-network.subnet)
-          region: southamerica-east1
+          region: $(ref.config.region)
           description: 'Static internal ip for web server'
 
         - name: blog-postgresql-internal-ip
@@ -189,21 +221,21 @@ resources:
           ipType: INTERNAL
           address: 10.128.0.131
           subnetwork: $(ref.blog-network.subnet)
-          region: southamerica-east1
+          region: $(ref.config.region)
           description: 'Static internal blog worker 1'
 
         - name: blog-worker2-internal-ip
           ipType: INTERNAL
           address: 10.128.0.132
           subnetwork: $(ref.blog-network.subnet)
-          region: southamerica-east1
+          region: $(ref.config.region)
           description: 'Static internal blog worker 2'
 
         - name: blog-worker3-internal-ip
           ipType: INTERNAL
           address: 10.128.0.133
           subnetwork: $(ref.blog-network.subnet)
-          region: southamerica-east1
+          region: $(ref.config.region)
           description: 'Static internal blog worker 3'
 
   #
