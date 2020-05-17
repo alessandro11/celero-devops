@@ -17,10 +17,11 @@
 # together using references, and passes them as env variables to the underlying
 # frontend Docker containers.
 imports:
-  - path: ip_reservation.py
-  - path: network.py
-  - path: disk.py
-  - path: vm_with_container.py
+- path: firewall.py
+- path: ip_reservation.py
+- path: network.py
+- path: disk.py
+- path: vm_with_container.py
 
 resources:
 - name: blog-postgres-instance
@@ -61,7 +62,8 @@ resources:
       - pgdata
 
 #
-# Creates instance of worker1 VM with container
+# Creates instance of worker2 VM with container
+# reverse proxy at port 8080
 #
 - name: blog-worker1-instance
   type: vm_with_container.py
@@ -83,6 +85,7 @@ resources:
 
 #
 # Creates instance of worker2 VM with container
+# reverse proxy at port 8080
 #
 - name: blog-worker2-instance
   type: vm_with_container.py
@@ -100,6 +103,7 @@ resources:
       dependsOn:
       - blog-network
       - blog-postgres-instance
+
 
 #
 # Creates disk persistent
@@ -125,7 +129,7 @@ resources:
         cidr: 10.128.0.0/16
 
 #
-# Reserve static IPs, one global and internal
+# Reserve static IPs; one global and three internal
 #
 - name: blog-ips
   type: ip_reservation.py
@@ -170,3 +174,49 @@ resources:
         subnetwork: $(ref.blog-network.subnet)
         region: southamerica-east1
         description: 'Static internal blog worker 3'
+
+- name: blog-firewall
+  type: firewall.py
+  properties:
+    network: $(ref.blog-network.selfLink)
+    rules:
+      - name: 'allow-ssh'
+        allowed:
+          - IPProtocol: tcp
+            ports:
+              - '22'
+        direction: INGRESS
+        priority: 65534
+        description: 'Allow ssh'
+
+      - name: 'allow-db'
+        allowed:
+          - IPProtocol: tcp
+            ports:
+              - '5432'
+        sourceRanges:
+          - 10.128.0.128/26
+        direction: INGRESS
+        priority: 65534
+        description: 'Allow db connection to workers range'
+
+      - name: 'allow-workers'
+        allowed:
+          - IPProtocol: tcp
+            ports:
+              - '8080'
+        sourceRanges:
+          - $(ref.blog-ips.addresses['blog-webserver-internal-ip'].address)/32
+        direction: INGRESS
+        priority: 65534
+        description: 'Allow connection to webserver only'
+
+      - name: 'allow-webserver'
+        allowed:
+          - IPProtocol: tcp
+            ports:
+              - '80'
+              - '443'
+        direction: INGRESS
+        priority: 10
+        description: 'Allow http(s)'
