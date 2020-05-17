@@ -53,9 +53,8 @@ def GenerateConfig(context):
     }, {
         'name': 'selfLink',
         'value': '$(ref.{}.selfLink)'.format(network_name)
+    }, {
+        'name': 'region', 'value': context.properties['subnetworks'][0]['region']
     }]
 
-    return {
-        'resources': resources,
-        'outputs': outputs
-    }
+    return { 'resources': resources, 'outputs': outputs }
