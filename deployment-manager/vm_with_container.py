@@ -42,56 +42,64 @@ def GenerateConfig(context):
                                      'machineTypes',
                                      context.properties['machineType']),
       'metadata': {
-          'items': [{
-              'key': 'gce-container-declaration',
-              'value': GenerateManifest(context)
-              }, {
-                'key': 'startup-script',
-                'value': context.properties['startup-script']
-              }]
-          },
+        'items': [{
+          'key': 'gce-container-declaration',
+          'value': GenerateManifest(context)
+        }]
+      },
       'disks': [{
-          'deviceName': 'boot',
-          'type': 'PERSISTENT',
-          'autoDelete': True,
-          'boot': True,
-          'initializeParams': {
-              'diskName': base_name + '-disk',
-              'sourceImage': GlobalComputeUrl('cos-cloud',
-                                              'images',
-                                              'family/cos-stable')
-              },
-      }, {
-          'deviceName': context.properties['deviceName'],
-          'type': 'PERSISTENT',
-          'autoDelete': False,
-          'boot': False,
-          'source': context.properties['storagePostgres']
+        'deviceName': 'boot',
+        'type': 'PERSISTENT',
+        'autoDelete': True,
+        'boot': True,
+        'initializeParams': {
+          'diskName': base_name + '-disk',
+          'sourceImage': GlobalComputeUrl('cos-cloud', 'images', 'family/cos-stable')
+        }
       }],
       'networkInterfaces': [{
-          'accessConfigs': [{
-              'name': 'external-nat',
-              'type': 'ONE_TO_ONE_NAT'
-              }],
-          'subnetwork': context.properties['subnet'],
-          'networkIP': context.properties['internalIP']
+        'accessConfigs': [{
+          'name': 'external-nat',
+          'type': 'ONE_TO_ONE_NAT',
+        }],
+        'subnetwork': context.properties['subnet'],
+        'networkIP': context.properties['internalIP']
       }],
-        'serviceAccounts': [{
-            'email': 'default',
-            'scopes': ['https://www.googleapis.com/auth/logging.write',
-                'https://www.googleapis.com/auth/cloud-platform',
-                'https://www.googleapis.com/auth/compute'
-                ]
-            }]
-      }
+      'serviceAccounts': [{
+        'email': 'default',
+        'scopes': ['https://www.googleapis.com/auth/logging.write',
+                   'https://www.googleapis.com/auth/cloud-platform',
+                   'https://www.googleapis.com/auth/compute'
+        ]
+      }]
+  }
+
+  if 'externalIP' in context.properties:
+    instance['networkInterfaces'][0]['accessConfigs'][0]['natIP'] = \
+       context.properties['externalIP']
+
+  if 'startup-script' in context.properties:
+    instance['metadata']['items'].append({
+      'key': 'startup-script',
+      'value': context.properties['startup-script']
+    })
+
+  if 'disks' in context.properties:
+    instance['disks'].append({
+      'deviceName': context.properties['disks'][0]['deviceName'],
+      'type': 'PERSISTENT',
+      'autoDelete': False,
+      'boot': False,
+      'source': context.properties['disks'][0]['diskResource']
+    })
 
   # Resources to return.
   resources = {
-      'resources': [{
-          'name': base_name,
-          'type': 'compute.v1.instance',
-          'properties': instance
-          }]
-      }
+    'resources': [{
+      'name': base_name,
+      'type': 'compute.v1.instance',
+      'properties': instance
+    }]
+  }
 
   return resources
