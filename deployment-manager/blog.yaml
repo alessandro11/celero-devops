@@ -104,6 +104,25 @@ resources:
       - blog-network
       - blog-postgres-instance
 
+#
+# Creates WebServer instance Nginx
+#
+- name: blog-webserver-instance
+  type: vm_with_container.py
+  properties:
+    machineType: 'f1-micro'
+    zone: 'southamerica-east1-b'
+    docker:
+      image: 'gcr.io/env-test-00001/ngix-alpine-3.11:blog-0.0.7'
+      env:
+        SERVER_NAME: 'blog-celero.duckdns.org'
+        SERVERS: $(ref.blog-ips.addresses['blog-worker1-internal-ip'].address),$(ref.blog-ips.addresses['blog-worker2-internal-ip'].address),$(ref.blog-ips.addresses['blog-worker3-internal-ip'].address)
+    subnet: $(ref.blog-network.subnet)
+    internalIP: $(ref.blog-ips.addresses['blog-webserver-internal-ip'].address)
+    externalIP: $(ref.blog-ips.addresses['blog-webserver-external-ip'].address)
+    metadata:
+      dependsOn:
+      - blog-network
 
 #
 # Creates disk persistent
