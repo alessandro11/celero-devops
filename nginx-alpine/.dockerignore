@@ -6,5 +6,12 @@
 *~
 \#*\#
 .\#*
-
-
+acme/*~
+acme/\#*\#
+acme/.\#*
+conf.d/*~
+conf.d/\#*\#
+conf.d/.\#*
+nginx/*~
+nginx/\#*\#
+nginx/.\#*
