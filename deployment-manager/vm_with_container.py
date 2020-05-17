@@ -33,14 +33,16 @@ def GenerateConfig(context):
   """Generate configuration."""
 
   base_name = context.env['name']
+  properties = context.properties
+  project_id = properties.get('projectId', context.env['project'])
 
   # Properties for the container-based instance.
   instance = {
       'zone': context.properties['zone'],
       'machineType': ZonalComputeUrl(context.env['project'],
-                                     context.properties['zone'],
+                                     properties['zone'],
                                      'machineTypes',
-                                     context.properties['machineType']),
+                                     properties['machineType']),
       'metadata': {
         'items': [{
           'key': 'gce-container-declaration',
@@ -62,8 +64,8 @@ def GenerateConfig(context):
           'name': 'external-nat',
           'type': 'ONE_TO_ONE_NAT',
         }],
-        'subnetwork': context.properties['subnet'],
-        'networkIP': context.properties['internalIP']
+        'subnetwork': properties['subnet'],
+        'networkIP': properties['internalIP']
       }],
       'serviceAccounts': [{
         'email': 'default',
@@ -74,29 +76,29 @@ def GenerateConfig(context):
       }]
   }
 
-  if 'tags' in context.properties:
+  if 'tags' in properties:
     items = []
-    for tag in context.properties['tags']:
+    for tag in properties['tags']:
       items.append(str(tag))
     instance['tags'] = {'items': items}
 
-  if 'externalIP' in context.properties:
+  if 'externalIP' in properties:
     instance['networkInterfaces'][0]['accessConfigs'][0]['natIP'] = \
-       context.properties['externalIP']
+       properties['externalIP']
 
-  if 'startup-script' in context.properties:
+  if 'startup-script' in properties:
     instance['metadata']['items'].append({
       'key': 'startup-script',
-      'value': context.properties['startup-script']
+      'value': properties['startup-script']
     })
 
-  if 'disks' in context.properties:
+  if 'disks' in properties:
     instance['disks'].append({
-      'deviceName': context.properties['disks'][0]['deviceName'],
+      'deviceName': properties['disks'][0]['deviceName'],
       'type': 'PERSISTENT',
       'autoDelete': False,
       'boot': False,
-      'source': context.properties['disks'][0]['diskResource']
+      'source': properties['disks'][0]['diskResource']
     })
 
   # Resources to return.
