@@ -30,15 +30,15 @@ def GenerateConfig(context):
 
     for subnetwork in context.properties['subnetworks']:
         resources.append({
-            'name': '%s-%s' % (network_name, subnetwork['region']),
+            'name': '{}-{}'.format(network_name, subnetwork['region']),
             'type': 'compute.v1.subnetwork',
             'properties': {
-                'name': '%s-%s' % (network_name, subnetwork['region']),
-                'description': 'Subnetwork of %s in %s' % (network_name,
+                'name': '{}-{}'.format(network_name, subnetwork['region']),
+                'description': 'Subnetwork of {} in {}'.format(network_name,
                                                            subnetwork['region']),
                 'ipCidrRange': subnetwork['cidr'],
                 'region': subnetwork['region'],
-                'network': '$(ref.%s.selfLink)' % network_name,
+                'network': '$(ref.{}.selfLink)'.format(network_name),
             },
             'metadata': {
                 'dependsOn': [
@@ -49,7 +49,10 @@ def GenerateConfig(context):
 
     outputs = [{
         'name': 'subnet',
-        'value': '$(ref.%s-%s.selfLink)' % (network_name, subnetwork['region'])
+        'value': '$(ref.{}-{}.selfLink)'.format(network_name, subnetwork['region'])
+    }, {
+        'name': 'selfLink',
+        'value': '$(ref.{}.selfLink)'.format(network_name)
     }]
 
     return {
