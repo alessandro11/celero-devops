@@ -108,10 +108,15 @@ RUN set -x \
     && ln -sf /dev/stderr /var/log/nginx/error.log
 
 EXPOSE 80
+EXPOSE 443
 
 RUN rm -rf /etc/nginx/conf.d/default.conf
-COPY ./blog.conf /etc/nginx/conf.d/
+
+COPY ./conf.d/ /etc/nginx/conf.d/
+COPY ./nginx/dhparam.pem /etc/nginx/
+COPY ./acme /etc/ssl/acme/
 COPY ./docker-entrypoint.sh /
+
 ENTRYPOINT ["/docker-entrypoint.sh"]
 STOPSIGNAL SIGTERM
 CMD ["runserver"]
