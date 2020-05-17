@@ -113,9 +113,11 @@ resources:
     machineType: 'f1-micro'
     zone: 'southamerica-east1-b'
     docker:
-      image: 'gcr.io/env-test-00001/ngix-alpine-3.11:blog-0.0.7'
+      image: 'gcr.io/env-test-00001/ngix-alpine-3.11:blog-0.0.11'
       env:
-        SERVER_NAME: 'blog-celero.duckdns.org'
+        SERVER_NAME_80: $(ref.blog-ips.addresses['blog-webserver-external-ip'].address)
+        SERVER_NAME_443: 'blog-celero.duckdns.org'
+        SERVER_EXTERNAL_IP: $(ref.blog-ips.addresses['blog-webserver-external-ip'].address)
         SERVERS: $(ref.blog-ips.addresses['blog-worker1-internal-ip'].address),$(ref.blog-ips.addresses['blog-worker2-internal-ip'].address),$(ref.blog-ips.addresses['blog-worker3-internal-ip'].address)
     subnet: $(ref.blog-network.subnet)
     internalIP: $(ref.blog-ips.addresses['blog-webserver-internal-ip'].address)
