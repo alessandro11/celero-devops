@@ -212,7 +212,7 @@ resources:
 
         - name: blog-postgresql-internal-ip
           ipType: INTERNAL
-          address: 10.128.0.128
+          address: 10.128.0.129
           subnetwork: $(ref.blog-network.subnet)
           region: southamerica-east1
           description: 'Static internal ip for PostgreSQL data base'
