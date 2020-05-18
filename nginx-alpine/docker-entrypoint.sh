@@ -67,10 +67,10 @@ set_server_name_443() {
                    use docker run ... -e SERVER_NAME_443=<your_server_name> ...
             ********************************************************************************
 EOERR
-        exit 1
+    else
+        sed -i "/^[ ,\t]*# SERVER_NAME_443/a \    server_name $server_name;" /etc/nginx/conf.d/blog.conf
     fi
 
-    sed -i "/^[ ,\t]*# SERVER_NAME_443/a \    server_name $server_name;" /etc/nginx/conf.d/blog.conf
 }
 
 update_dns() {
@@ -78,17 +78,17 @@ update_dns() {
     local token='03dd6332-ff49-4ed6-8771-0f96a8ed87c7'
 
     if [ -z "$external_ip" ]; then
-        cat >&2 <<-'EOERR'
+        cat >&2 <<-'EOWARN'
             ********************************************************************************
             ERROR: No external ip has been defined
 
                    use docker run ... -e SERVER_EXTERNAL_IP=<your_server_ip> ...
             ********************************************************************************
-EOERR
-        exit 1
+EOWARN
+    else
+        wget -O- "https://www.duckdns.org/update?domains=blog-celero&token=$token&ip=$external_ip&verbose=true"
     fi
 
-    wget -O- "https://www.duckdns.org/update?domains=blog-celero&token=$token&ip=$external_ip&verbose=true"
 }
 
 
