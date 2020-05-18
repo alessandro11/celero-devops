@@ -4,19 +4,18 @@
 # By default this script just build those images
 #
 
-# by default run images, unless explicit deny
-RUN=0
-# by default build images, unless user deny
-BUILD=0
-PUSH=0
+# Default behaviour
+BUILD=1
+RUN=1
+PUSH=1
 
-PROJECT_ID="env-test-0002"
+PROJECT_ID="env-test-00001"
 IMG_POSTGRES="gcr.io/$PROJECT_ID/postgres-12.2-alpine-3.11"
 TAG_POSTGRES="blog-0.0.10"
 IMG_APP="gcr.io/$PROJECT_ID/ubuntu-18.04.4-lts"
-TAG_APP="blog-0.0.10"
+TAG_APP="blog-0.0.11"
 IMG_NGINX="gcr.io/$PROJECT_ID/ngix-alpine-3.11"
-TAG_NGINX="blog-0.0.10"
+TAG_NGINX="blog-0.0.11"
 
 
 perror() {
@@ -157,7 +156,7 @@ run() {
     # This assignment is by reference
     # return to the caller the ip guessed
     nginx_ip="$(grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' <<<$blog2_ip).${host}"
-    docker run --rm -d --name nginx -e SERVER_NAME="$nginx_ip" -e SERVERS="$blog1_ip,$blog2_ip" \
+    docker run --rm -d --name nginx -e SERVER_NAME_80="$nginx_ip" -e SERVERS="$blog1_ip,$blog2_ip" \
                 "$IMG_NGINX:$TAG_NGINX"
     [ $? -ne 0 ] && exit 1
     # little trick to get back the stout, the container
@@ -176,20 +175,17 @@ while getopts ":abrph" opt; do
         a)
             RUN=0
             BUILD=0
+            PUSH=0
             ;;
 
         b)
-            RUN=1
             BUILD=0
             ;;
 
         r)
             RUN=0
-            BUILD=1
             ;;
         p)
-            RUN=1
-            BUILD=1
             PUSH=0
             ;;
 
@@ -233,9 +229,6 @@ fi
 # If user request; build docker images
 #
 [ $BUILD -eq 0 ] && build
-#
-# If user request; push those images
-[ $PUSH -eq 0 ] && push
 
 #
 # Run all images built, if user requested
@@ -255,5 +248,10 @@ if [ $RUN -eq 0 ]; then
 EOINFO
     fi
 fi
+
+#
+# If user request; push those images
+#
+[ $PUSH -eq 0 ] && push
 
 exit 0
