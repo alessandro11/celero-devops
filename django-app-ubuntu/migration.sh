@@ -12,7 +12,8 @@ run_as_root() {
 cd \$HOME/blog/src
 python manage.py migrate \
 && echo -e "from django.contrib.contenttypes.models import ContentType\nContentType.objects.all().delete()\n" | python manage.py shell \
-&& python manage.py loaddata db.json
+&& python manage.py loaddata db.json; \
+/home/app/blog/src/manage.py collectstatic --noinput --pythonpath /home/app/blog/src,/home/app/venv/lib,/home/app/venv/lib64
 EOM
 
     exit $?
@@ -27,6 +28,7 @@ fi
 cd $HOME/blog/src
 python manage.py migrate \
 && echo "from django.contrib.contenttypes.models import ContentType\nContentType.objects.all().delete()\n" | python manage.py shell \
-&& python manage.py loaddata db.json
+&& python manage.py loaddata db.json; \
+/home/app/blog/src/manage.py collectstatic --noinput --pythonpath /home/app/blog/src,/home/app/venv/lib,/home/app/venv/lib64
 
 exit $?
