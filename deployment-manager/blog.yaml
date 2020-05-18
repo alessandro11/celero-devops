@@ -45,10 +45,10 @@ resources:
       region: southamerica-east1
       zone: southamerica-east1-b
       postgres:
-        image: 'postgres-12.2-alpine-3.11:blog-0.0.3'
+        image: 'postgres-12.2-alpine-3.11:blog-0.0.10'
         db_blog_password: 'bIhJ6ekK$FxCKJTn0Wg47z'
       worker:
-        image: 'ubuntu-18.04.4-lts:blog-0.0.4'
+        image: 'ubuntu-18.04.4-lts:blog-0.0.11'
       webserver:
         image: 'ngix-alpine-3.11:blog-v0.0.11'
         server_name_443: 'blog-celero.duckdns.org'
@@ -149,6 +149,28 @@ resources:
           DB_SERVER: $(ref.blog-ips.addresses['blog-postgresql-internal-ip'].address)
       subnet: $(ref.blog-network.subnet)
       internalIP: $(ref.blog-ips.addresses['blog-worker2-internal-ip'].address)
+      metadata:
+        dependsOn:
+          - config
+          - blog-network
+          - blog-postgres-instance
+
+  #
+  # Creates instance of worker3 VM with container
+  # reverse proxy at port 8080
+  #
+  - name: blog-worker3-instance
+    type: vm_with_container.py
+    properties:
+      machineType: 'f1-micro'
+      zone: $(ref.config.zone)
+      docker:
+        image: $(ref.config.worker.image)
+        env:
+          DB_PASSWD: $(ref.config.postgres.db_blog_password)
+          DB_SERVER: $(ref.blog-ips.addresses['blog-postgresql-internal-ip'].address)
+      subnet: $(ref.blog-network.subnet)
+      internalIP: $(ref.blog-ips.addresses['blog-worker3-internal-ip'].address)
       metadata:
         dependsOn:
           - config
