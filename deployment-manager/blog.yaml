@@ -50,7 +50,7 @@ resources:
       worker:
         image: 'ubuntu-18.04.4-lts:blog-0.0.11'
       webserver:
-        image: 'ngix-alpine-3.11:blog-v0.0.11'
+        image: 'ngix-alpine-3.11:blog-0.0.11'
         server_name_443: 'blog-celero.duckdns.org'
 
 
@@ -158,24 +158,25 @@ resources:
   #
   # Creates instance of worker3 VM with container
   # reverse proxy at port 8080
+  # Free Trial account causes Quota exceed
   #
-  - name: blog-worker3-instance
-    type: vm_with_container.py
-    properties:
-      machineType: 'f1-micro'
-      zone: $(ref.config.zone)
-      docker:
-        image: $(ref.config.worker.image)
-        env:
-          DB_PASSWD: $(ref.config.postgres.db_blog_password)
-          DB_SERVER: $(ref.blog-ips.addresses['blog-postgresql-internal-ip'].address)
-      subnet: $(ref.blog-network.subnet)
-      internalIP: $(ref.blog-ips.addresses['blog-worker3-internal-ip'].address)
-      metadata:
-        dependsOn:
-          - config
-          - blog-network
-          - blog-postgres-instance
+  # - name: blog-worker3-instance
+  #   type: vm_with_container.py
+  #   properties:
+  #     machineType: 'f1-micro'
+  #     zone: $(ref.config.zone)
+  #     docker:
+  #       image: $(ref.config.worker.image)
+  #       env:
+  #         DB_PASSWD: $(ref.config.postgres.db_blog_password)
+  #         DB_SERVER: $(ref.blog-ips.addresses['blog-postgresql-internal-ip'].address)
+  #     subnet: $(ref.blog-network.subnet)
+  #     internalIP: $(ref.blog-ips.addresses['blog-worker3-internal-ip'].address)
+  #     metadata:
+  #       dependsOn:
+  #         - config
+  #         - blog-network
+  #         - blog-postgres-instance
 
   #
   # Creates WebServer instance Nginx
@@ -193,7 +194,7 @@ resources:
           SERVER_NAME_80: $(ref.blog-ips.addresses['blog-webserver-external-ip'].address)
           SERVER_NAME_443: $(ref.config.webserver.server_name_443)
           SERVER_EXTERNAL_IP: $(ref.blog-ips.addresses['blog-webserver-external-ip'].address)
-          SERVERS: $(ref.blog-ips.addresses['blog-worker1-internal-ip'].address),$(ref.blog-ips.addresses['blog-worker2-internal-ip'].address),$(ref.blog-ips.addresses['blog-worker3-internal-ip'].address)
+          SERVERS: $(ref.blog-ips.addresses['blog-worker1-internal-ip'].address),$(ref.blog-ips.addresses['blog-worker2-internal-ip'].address)
       subnet: $(ref.blog-network.subnet)
       internalIP: $(ref.blog-ips.addresses['blog-webserver-internal-ip'].address)
       externalIP: $(ref.blog-ips.addresses['blog-webserver-external-ip'].address)
