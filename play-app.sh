@@ -8,12 +8,14 @@
 RUN=0
 # by default build images, unless user deny
 BUILD=0
+PUSH=0
 
-IMG_POSTGRES="gcr.io/celerodevops/postgres-12.2-alpine-3.11"
+PROJECT_ID="env-test-0002"
+IMG_POSTGRES="gcr.io/$PROJECT_ID/postgres-12.2-alpine-3.11"
 TAG_POSTGRES="blog-0.0.10"
-IMG_APP="gcr.io/celerodevops/ubuntu-18.04.4-lts"
+IMG_APP="gcr.io/$PROJECT_ID/ubuntu-18.04.4-lts"
 TAG_APP="blog-0.0.10"
-IMG_NGINX="gcr.io/celerodevops/ngix-alpine-3.11"
+IMG_NGINX="gcr.io/$PROJECT_ID/ngix-alpine-3.11"
 TAG_NGINX="blog-0.0.10"
 
 
@@ -23,7 +25,7 @@ perror() {
 
 help() {
     cat <<-EOINFO
-Usage: ./$(basename $0) [-a|-b|-r|-h]
+Usage: ./$(basename $0) [-a|-b|-p|-r|-h]
     Build and run docker images do deploy the application
     Blog-API-with-Django-Rest-Framework.
     The following images will be build and or run:
@@ -33,6 +35,7 @@ Usage: ./$(basename $0) [-a|-b|-r|-h]
 
     [-a] - build and run images
     [-b] - just build images
+    [-p] - push the images built
     [-r] - just run images
     [-h] - this help
 
@@ -43,7 +46,7 @@ Usage: ./$(basename $0) [-a|-b|-r|-h]
         - $IMG_NGINX:$TAG_NGINX
 
     Edit those varriables:
-    IMG_POSTGRES, TAG_POSTGRES, IMG_APP, TAG_APP, IMG_NGINX, TAG_NGINX"
+    PROJECT_ID, IMG_POSTGRES, TAG_POSTGRES, IMG_APP, TAG_APP, IMG_NGINX, TAG_NGINX"
 EOINFO
 }
 
@@ -162,7 +165,13 @@ run() {
     set -x; set +x
 }
 
-while getopts ":abrh" opt; do
+push() {
+    docker push "$IMG_POSTGRES:$TAG_POSTGRES"
+    docker push "$IMG_APP:$TAG_APP"
+    docker push "$IMG_NGINX:$TAG_NGINX"
+}
+
+while getopts ":abrph" opt; do
     case $opt in
         a)
             RUN=0
@@ -177,6 +186,11 @@ while getopts ":abrh" opt; do
         r)
             RUN=0
             BUILD=1
+            ;;
+        p)
+            RUN=1
+            BUILD=1
+            PUSH=0
             ;;
 
         h)
@@ -216,9 +230,12 @@ fi
 
 
 #
-# If user requeste, build docker images
+# If user request; build docker images
 #
 [ $BUILD -eq 0 ] && build
+#
+# If user request; push those images
+[ $PUSH -eq 0 ] && push
 
 #
 # Run all images built, if user requested
