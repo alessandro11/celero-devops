@@ -46,7 +46,7 @@ Usage: ./$(basename $0) [-a|-b|-p|-r|-h]
         - $IMG_NGINX:$TAG_NGINX
 
     Edit those varriables:
-    PROJECT_ID, IMG_POSTGRES, TAG_POSTGRES, IMG_APP, TAG_APP, IMG_NGINX, TAG_NGINX"
+    PROJECT_ID, IMG_POSTGRES, TAG_POSTGRES, IMG_APP, TAG_APP, IMG_NGINX, TAG_NGINX
 EOINFO
 }
 
